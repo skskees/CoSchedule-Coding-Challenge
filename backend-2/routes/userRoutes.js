@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET;
 const app = express();
 app.use(bodyParser.json());
 const userService = new UserService(DB);
@@ -32,7 +32,7 @@ app.post('/register', async (req,res) => {
             throw new Error('Password is required!')
         }
 
-        const hash = bcrypt.hash(req.body.password, 10);
+        const hash = await bcrypt.hash(req.body.password, 10);
 
         userService.isUsernameTaken(req.body.username, (err, taken) => {
         if (err) {
@@ -63,42 +63,52 @@ app.post('/register', async (req,res) => {
 
 
 //POST user (login)
-app.post('/login', (req,res) => {
-    console.log(req.body);
-    res.set('content-type', 'application/json');
-    try {
-        const user_sql = `SELECT * from users WHERE username=?`;
-        let user = DB.get(user_sql, [req.body.username], (err, row) => {
-            if (!row) {
-                return res.status(404);
-            } else {
-                const data = {
-                id: row.id,
-                username: row.username,
-                email: row.email,
-                password_hash: row.password_hash,
-                created_at: row.created_at 
-            };
-            return data;
-            }
-        });
-        if (!user) return res.status(404).send('Invalid credentials');
+app.post('/login', (req, res) => {
+  console.log('Login request body:', req.body);
+  const { username, password } = req.body;
 
-        try {
-            const isMatch = bcrypt.compare(req.body.password, user.password_hash)
-            if (!isMatch) return res.status(404).send('Invalid credentials');
-        } catch (err){
-            console.log(err.message);
-            res.status(400).send(err.message);
-        }
-        
-        const token = jwt.sign({id: user.id, username: user.username}, SECRET, {expiresIn: '1d'});
-        res.json({token})
-    } catch (err){
-        console.log(err.message);
-        res.status(400).send(err.message);
-    } 
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+
+  DB.get(`SELECT * FROM users WHERE username = ?`, [username], async (err, user) => {
+    if (err) {
+      console.error('DB error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+
+    if (!user) {
+      console.log('User not found');
+      return res.status(400).json({ error: 'Invalid username or password' });
+    }
+
+    try {
+      const match = await bcrypt.compare(password, user.password_hash);
+      
+      if (!match) {
+        console.log('Password mismatch');
+        return res.status(400).json({ error: 'Invalid username or password' });
+      }
+
+      const token = jwt.sign(
+        { user_id: user.id, username: user.username },
+        JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+
+      res.json({
+        token,
+        userId: user.id,
+        username: user.username,
+    });
+
+    } catch (err) {
+      console.error('Bcrypt error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
 });
+
 
 //GET - specific user by username
 app.get('/getUser/:username', (req, res) => {

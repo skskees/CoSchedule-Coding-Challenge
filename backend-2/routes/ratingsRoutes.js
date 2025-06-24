@@ -1,12 +1,13 @@
 import {DB} from '../connect.js';
 import express from 'express';
 import bodyParser from 'body-parser';
+import authenticateToken from '../middleware/authMiddleware.js'
 const app = express();
 app.use(bodyParser.json());
 
 
 //GET Get all ratings
-app.get('/', (req ,res) => {
+app.get('/', authenticateToken, (req ,res) => {
     res.set('content-type', 'application/json');
     const sql = 'SELECT * FROM ratings';
     let data = {ratings: []};
@@ -28,7 +29,7 @@ app.get('/', (req ,res) => {
 });
 
 // GET - Get a single rating
-app.get('/getRating/:ratingId', (req, res) => {
+app.get('/getRating/:ratingId', authenticateToken, (req, res) => {
     res.set('content-type', 'application/json');
     const sql = 'SELECT * FROM ratings WHERE id = ?';
     const ratingId = req.params.ratingId;
@@ -59,8 +60,30 @@ app.get('/getRating/:ratingId', (req, res) => {
     }
 });
 
+//GET - ratings for a user
+app.get('/getRatingByUser', (req, res) => {
+  const userId = req.query.user_id;
+  if (!userId) return res.status(400).json({ message: 'Missing user_id' });
+
+  let data = { ratings: [] };  // initialize ratings as empty array
+
+  DB.all('SELECT giphy_id, rating FROM ratings WHERE user_id=?', [userId], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Error fetching ratings' });
+    }
+
+    rows.forEach(row => {
+      data.ratings.push({ giphy_id: row.giphy_id, rating: row.rating });
+    });
+
+    res.json(data); // you can send object directly without JSON.stringify
+  });
+});
+
+
 //POST rating
-app.post('/', (req,res) => {
+app.post('/', authenticateToken, (req,res) => {
     console.log(req.body);
     res.set('content-type', 'application/json');
     const sql = `INSERT INTO ratings (user_id, giphy_id, rating, created_at) VALUES (?, ?, ?, ?)`;
@@ -82,7 +105,7 @@ app.post('/', (req,res) => {
 
 
 //DELETE rating
-app.delete('/', (req,res) => {
+app.delete('/', authenticateToken, (req,res) => {
     res.set('content-type', 'application/json');
     const sql = 'DELETE FROM ratings WHERE id=?';
     try {

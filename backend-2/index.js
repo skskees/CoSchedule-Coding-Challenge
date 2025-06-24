@@ -1,4 +1,5 @@
 import {DB} from './connect.js';
+import cors from 'cors';
 import ratingsRoutes from './routes/ratingsRoutes.js'
 import commentsRoutes from './routes/commentsRoutes.js'
 import userRoutes from './routes/userRoutes.js'
@@ -8,6 +9,8 @@ import express from 'express';
 import bodyParser from 'body-parser';
 const app = express();
 app.use(bodyParser.json());
+app.use(express.json()); // ✅ MUST be before your routes
+app.use(cors());
 
 app.get('/', (req, res) => {
     res.status(200);

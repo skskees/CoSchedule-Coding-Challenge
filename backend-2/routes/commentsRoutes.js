@@ -1,12 +1,13 @@
 import {DB} from '../connect.js';
 import express from 'express';
 import bodyParser from 'body-parser';
+import authenticateToken from '../middleware/authMiddleware.js'
 const app = express();
 app.use(bodyParser.json());
 
 
 //GET Get all comments
-app.get('/', (req ,res) => {
+app.get('/', authenticateToken, (req ,res) => {
     res.set('content-type', 'application/json');
     const sql = 'SELECT * FROM comments';
     let data = {comments: []};
@@ -28,7 +29,7 @@ app.get('/', (req ,res) => {
 });
 
 // GET - Get a single comment
-app.get('/getComment/:commentId', (req, res) => {
+app.get('/getComment/:commentId', authenticateToken, (req, res) => {
     res.set('content-type', 'application/json');
     const sql = 'SELECT * FROM comments WHERE id = ?';
     const commentId = req.params.commentId;
@@ -60,7 +61,7 @@ app.get('/getComment/:commentId', (req, res) => {
 });
 
 //POST comment
-app.post('/', (req,res) => {
+app.post('/', authenticateToken, (req,res) => {
     console.log(req.body);
     res.set('content-type', 'application/json');
     const sql = `INSERT INTO comments (user_id, giphy_id, comment, created_at) VALUES (?, ?, ?, ?)`;
@@ -82,7 +83,7 @@ app.post('/', (req,res) => {
 
 
 //DELETE comment
-app.delete('/', (req,res) => {
+app.delete('/', authenticateToken, (req,res) => {
     res.set('content-type', 'application/json');
     const sql = 'DELETE FROM comments WHERE id=?';
     try {
